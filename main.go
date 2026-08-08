@@ -2,343 +2,295 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/spf13/cobra"
 )
-
-type Priority int
-
-const (
-	Low Priority = iota
-	Medium
-	High
-	Urgent
-)
-
-func (p Priority) String() string {
-	return [...]string{"Low", "Medium", "High", "Urgent"}[p]
-}
-
-func (p Priority) Color() string {
-	return [...]string{"[green]", "[yellow]", "[orange]", "[red]"}[p]
-}
 
 type Task struct {
-	ID          int       `json:"id"`
-	Title       string    `json:"title"`
-	Completed   bool      `json:"completed"`
-	Priority    Priority  `json:"priority"`
-	DueDate     string    `json:"due_date,omitempty"`
-	Tags        []string  `json:"tags,omitempty"`
-	CreatedAt   string    `json:"created_at"`
-	CompletedAt string    `json:"completed_at,omitempty"`
-}
-
-type TaskStore struct {
-	Tasks  []Task `json:"tasks"`
-	NextID int    `json:"next_id"`
-}
-
-var storeFile string
-
-func init() {
-	home, _ := os.UserHomeDir()
-	storeFile = home + "/.tasks.json"
-}
-
-func loadStore() TaskStore {
-	var store TaskStore
-	data, err := os.ReadFile(storeFile)
-	if err != nil {
-		return TaskStore{NextID: 1}
-	}
-	json.Unmarshal(data, &store)
-	return store
-}
-
-func saveStore(store TaskStore) {
-	data, _ := json.MarshalIndent(store, "", "  ")
-	os.WriteFile(storeFile, data, 0644)
+	ID          int        json:"id"
+	Title       string     json:"title"
+	Description string     json:"description"
+	Priority    string     json:"priority"
+	Tags        []string   json:"tags"
+	DueDate     string     json:"due_date"
+	Completed   bool       json:"completed"
+	CreatedAt   time.Time  json:"created_at"
+	CompletedAt *time.Time json:"completed_at,omitempty"
 }
 
 func main() {
-	var rootCmd = &cobra.Command{
-		Use:   "task",
-		Short: "Minimal task manager with persistence, priorities, and due dates",
-		Long:  "A production-grade CLI task manager with JSON persistence, priorities, due dates, tags, and filtering.",
+	if len(os.Args) < 2 {
+		printUsage()
+		return
 	}
 
-	var addCmd = &cobra.Command{
-		Use:   "add [title]",
-		Short: "Add a new task",
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			priority, _ := cmd.Flags().GetInt("priority")
-			due, _ := cmd.Flags().GetString("due")
-			tags, _ := cmd.Flags().GetStringSlice("tags")
-
-			store := loadStore()
-			task := Task{
-				ID:        store.NextID,
-				Title:     strings.Join(args, " "),
-				Priority:  Priority(priority),
-				DueDate:   due,
-				Tags:      tags,
-				CreatedAt: time.Now().Format(time.RFC3339),
-			}
-			store.Tasks = append(store.Tasks, task)
-			store.NextID++
-			saveStore(store)
-
-			fmt.Printf("Added task #%d: %s [Priority: %s]\n", task.ID, task.Title, task.Priority)
-			if due != "" {
-				fmt.Printf("  Due: %s\n", due)
-			}
-			if len(tags) > 0 {
-				fmt.Printf("  Tags: %s\n", strings.Join(tags, ", "))
-			}
-		},
+	switch os.Args[1] {
+	case "interactive", "i":
+		RunInteractive()
+	case "export":
+		exportCmd := flag.NewFlagSet("export", flag.ExitOnError)
+		filename := exportCmd.String("file", "tasks.csv", "Output filename")
+		exportCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		if err := ExportToCSV(tasks, *filename); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "import":
+		importCmd := flag.NewFlagSet("import", flag.ExitOnError)
+		filename := importCmd.String("file", "", "Input CSV filename")
+		importCmd.Parse(os.Args[2:])
+		if *filename == "" {
+			fmt.Println("Error: --file is required")
+			os.Exit(1)
+		}
+		tasks := loadTasks()
+		imported, err := ImportFromCSV(*filename)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		tasks = append(tasks, imported...)
+		saveTasks(tasks)
+		fmt.Printf("Imported %d tasks\n", len(imported))
+	default:
+		runCLI()
 	}
-	addCmd.Flags().IntP("priority", "p", 1, "Priority: 0=Low, 1=Medium, 2=High, 3=Urgent")
-	addCmd.Flags().StringP("due", "d", "", "Due date (YYYY-MM-DD)")
-	addCmd.Flags().StringSliceP("tags", "t", nil, "Tags (comma-separated)")
+}
 
-	var listCmd = &cobra.Command{
-		Use:   "list",
-		Short: "List tasks with optional filters",
-		Run: func(cmd *cobra.Command, args []string) {
-			store := loadStore()
-			showAll, _ := cmd.Flags().GetBool("all")
-			priorityFilter, _ := cmd.Flags().GetInt("priority")
-			tagFilter, _ := cmd.Flags().GetString("tag")
-			overdueOnly, _ := cmd.Flags().GetBool("overdue")
+func printUsage() {
+	fmt.Println("Go Task CLI - Manage your tasks efficiently")
+	fmt.Println()
+	fmt.Println("Commands:")
+	fmt.Println("  add         Add a new task")
+	fmt.Println("  list        List all tasks")
+	fmt.Println("  done        Mark a task as completed")
+	fmt.Println("  delete      Delete a task")
+	fmt.Println("  search      Search tasks")
+	fmt.Println("  stats       Show task statistics")
+	fmt.Println("  priority    List tasks by priority")
+	fmt.Println("  due         List tasks by due date")
+	fmt.Println("  export      Export tasks to CSV")
+	fmt.Println("  import      Import tasks from CSV")
+	fmt.Println("  interactive Start interactive mode")
+	fmt.Println()
+	fmt.Println("Flags:")
+	fmt.Println("  --json      Output as JSON (list command)")
+	fmt.Println("  --csv       Output as CSV (list command)")
+}
 
-			var filtered []Task
-			for _, t := range store.Tasks {
-				if !showAll && t.Completed {
-					continue
-				}
-				if priorityFilter >= 0 && int(t.Priority) != priorityFilter {
-					continue
-				}
-				if tagFilter != "" && !containsTag(t.Tags, tagFilter) {
-					continue
-				}
-				if overdueOnly && !isOverdue(t.DueDate) {
-					continue
-				}
-				filtered = append(filtered, t)
-			}
+func runCLI() {
+	addCmd := flag.NewFlagSet("add", flag.ExitOnError)
+	title := addCmd.String("title", "", "Task title")
+	desc := addCmd.String("desc", "", "Task description")
+	priority := addCmd.String("priority", "3", "Priority (1-5)")
+	tags := addCmd.String("tags", "", "Comma-separated tags")
+	due := addCmd.String("due", "", "Due date (YYYY-MM-DD)")
 
-			if len(filtered) == 0 {
-				fmt.Println("No tasks found.")
+	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
+	jsonOutput := listCmd.Bool("json", false, "Output as JSON")
+	csvOutput := listCmd.Bool("csv", false, "Output as CSV")
+
+	doneCmd := flag.NewFlagSet("done", flag.ExitOnError)
+	doneID := doneCmd.Int("id", 0, "Task ID to mark as done")
+
+	deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+	deleteID := deleteCmd.Int("id", 0, "Task ID to delete")
+
+	searchCmd := flag.NewFlagSet("search", flag.ExitOnError)
+	query := searchCmd.String("q", "", "Search query")
+
+	switch os.Args[1] {
+	case "add":
+		addCmd.Parse(os.Args[2:])
+		if *title == "" {
+			fmt.Println("Error: --title is required")
+			os.Exit(1)
+		}
+		tasks := loadTasks()
+		newTask := Task{
+			ID:          len(tasks) + 1,
+			Title:       *title,
+			Description: *desc,
+			Priority:    *priority,
+			Tags:        strings.Split(*tags, ","),
+			DueDate:     *due,
+			CreatedAt:   time.Now(),
+		}
+		tasks = append(tasks, newTask)
+		saveTasks(tasks)
+		fmt.Printf("Task added: %s (ID: %d)\n", newTask.Title, newTask.ID)
+
+	case "list":
+		listCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		if *jsonOutput {
+			printJSON(tasks)
+		} else if *csvOutput {
+			printCSV(tasks)
+		} else {
+			printTasks(tasks)
+		}
+
+	case "done":
+		doneCmd.Parse(os.Args[2:])
+		if *doneID == 0 {
+			fmt.Println("Error: --id is required")
+			os.Exit(1)
+		}
+		tasks := loadTasks()
+		for i := range tasks {
+			if tasks[i].ID == *doneID {
+				tasks[i].Completed = true
+				now := time.Now()
+				tasks[i].CompletedAt = &now
+				saveTasks(tasks)
+				fmt.Printf("Completed: %s\n", tasks[i].Title)
 				return
 			}
+		}
+		fmt.Printf("Task with ID %d not found\n", *doneID)
 
-			sort.Slice(filtered, func(i, j int) bool {
-				if filtered[i].Priority != filtered[j].Priority {
-					return filtered[i].Priority > filtered[j].Priority
-				}
-				return filtered[i].ID < filtered[j].ID
-			})
-
-			fmt.Printf("\n%-4s %-6s %-40s %-12s %-20s %s\n", "ID", "Pri", "Title", "Due", "Tags", "Status")
-			fmt.Println(strings.Repeat("-", 100))
-			for _, t := range filtered {
-				status := "[ ]"
-				if t.Completed {
-					status = "[x]"
-				}
-				due := t.DueDate
-				if due == "" {
-					due = "-"
-				}
-				if isOverdue(t.DueDate) && !t.Completed {
-					due = "[RED]" + due + "[/RED]"
-				}
-				tags := strings.Join(t.Tags, ",")
-				if tags == "" {
-					tags = "-"
-				}
-				fmt.Printf("%-4d %s %-40s %-12s %-20s %s\n",
-					t.ID, t.Priority.Color()+t.Priority.String()+"[/]", t.Title, due, tags, status)
+	case "delete":
+		deleteCmd.Parse(os.Args[2:])
+		if *deleteID == 0 {
+			fmt.Println("Error: --id is required")
+			os.Exit(1)
+		}
+		tasks := loadTasks()
+		for i := range tasks {
+			if tasks[i].ID == *deleteID {
+				title := tasks[i].Title
+				tasks = append(tasks[:i], tasks[i+1:]...)
+				saveTasks(tasks)
+				fmt.Printf("Deleted: %s\n", title)
+				return
 			}
-			fmt.Printf("\nTotal: %d tasks\n", len(filtered))
-		},
-	}
-	listCmd.Flags().BoolP("all", "a", false, "Show completed tasks too")
-	listCmd.Flags().IntP("priority", "p", -1, "Filter by priority")
-	listCmd.Flags().StringP("tag", "t", "", "Filter by tag")
-	listCmd.Flags().Bool("overdue", false, "Show only overdue tasks")
+		}
+		fmt.Printf("Task with ID %d not found\n", *deleteID)
 
-	var doneCmd = &cobra.Command{
-		Use:   "done [id]",
-		Short: "Mark task as completed",
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			id, _ := strconv.Atoi(args[0])
-			store := loadStore()
-			for i, t := range store.Tasks {
-				if t.ID == id {
-					store.Tasks[i].Completed = true
-					store.Tasks[i].CompletedAt = time.Now().Format(time.RFC3339)
-					saveStore(store)
-					fmt.Printf("Task #%d completed: %s\n", id, t.Title)
-					return
-				}
+	case "search":
+		searchCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		queryLower := strings.ToLower(*query)
+		found := false
+		for _, t := range tasks {
+			if strings.Contains(strings.ToLower(t.Title), queryLower) ||
+				strings.Contains(strings.ToLower(t.Description), queryLower) {
+				fmt.Printf("  [%d] %s (priority: %s)\n", t.ID, t.Title, t.Priority)
+				found = true
 			}
-			fmt.Printf("Task #%d not found\n", id)
-		},
-	}
+		}
+		if !found {
+			fmt.Println("No matching tasks found.")
+		}
 
-	var removeCmd = &cobra.Command{
-		Use:   "remove [id]",
-		Short: "Remove a task",
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			id, _ := strconv.Atoi(args[0])
-			store := loadStore()
-			for i, t := range store.Tasks {
-				if t.ID == id {
-					store.Tasks = append(store.Tasks[:i], store.Tasks[i+1:]...)
-					saveStore(store)
-					fmt.Printf("Task #%d removed: %s\n", id, t.Title)
-					return
-				}
-			}
-			fmt.Printf("Task #%d not found\n", id)
-		},
-	}
+	case "stats":
+		tasks := loadTasks()
+		printStats(tasks)
 
-	var editCmd = &cobra.Command{
-		Use:   "edit [id]",
-		Short: "Edit task title",
-		Args:  cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			id, _ := strconv.Atoi(args[0])
-			newTitle := strings.Join(args[1:], " ")
-			store := loadStore()
-			for i, t := range store.Tasks {
-				if t.ID == id {
-					store.Tasks[i].Title = newTitle
-					saveStore(store)
-					fmt.Printf("Task #%d updated: %s\n", id, newTitle)
-					return
-				}
-			}
-			fmt.Printf("Task #%d not found\n", id)
-		},
-	}
+	case "priority":
+		tasks := loadTasks()
+		sortByPriority(tasks)
+		printTasks(tasks)
 
-	var statsCmd = &cobra.Command{
-		Use:   "stats",
-		Short: "Show detailed statistics",
-		Run: func(cmd *cobra.Command, args []string) {
-			store := loadStore()
-			total := len(store.Tasks)
-			completed := 0
-			byPriority := make(map[string]int)
-			byTag := make(map[string]int)
-			overdue := 0
+	case "due":
+		tasks := loadTasks()
+		sortByDueDate(tasks)
+		printTasks(tasks)
 
-			for _, t := range store.Tasks {
-				if t.Completed {
-					completed++
-				}
-				byPriority[t.Priority.String()]++
-				for _, tag := range t.Tags {
-					byTag[tag]++
-				}
-				if !t.Completed && isOverdue(t.DueDate) {
-					overdue++
-				}
-			}
-
-			fmt.Println("\n=== Task Statistics ===")
-			fmt.Printf("Total:     %d\n", total)
-			fmt.Printf("Completed: %d\n", completed)
-			fmt.Printf("Pending:   %d\n", total-completed)
-			fmt.Printf("Overdue:   %d\n", overdue)
-			if total > 0 {
-				fmt.Printf("Progress:  %.0f%%\n", float64(completed)/float64(total)*100)
-			}
-
-			fmt.Println("\nBy Priority:")
-			for p, c := range byPriority {
-				fmt.Printf("  %s: %d\n", p, c)
-			}
-
-			if len(byTag) > 0 {
-				fmt.Println("\nBy Tag:")
-				for tag, c := range byTag {
-					fmt.Printf("  %s: %d\n", tag, c)
-				}
-			}
-		},
-	}
-
-	var searchCmd = &cobra.Command{
-		Use:   "search [query]",
-		Short: "Search tasks by title",
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			query := strings.ToLower(strings.Join(args, " "))
-			store := loadStore()
-			found := false
-			for _, t := range store.Tasks {
-				if strings.Contains(strings.ToLower(t.Title), query) {
-					status := "[ ]"
-					if t.Completed { status = "[x]" }
-					fmt.Printf("#%d %s %s [Priority: %s]\n", t.ID, status, t.Title, t.Priority)
-					found = true
-				}
-			}
-			if !found {
-				fmt.Println("No matching tasks found.")
-			}
-		},
-	}
-
-	var exportCmd = &cobra.Command{
-		Use:   "export",
-		Short: "Export tasks as JSON",
-		Run: func(cmd *cobra.Command, args []string) {
-			store := loadStore()
-			data, _ := json.MarshalIndent(store.Tasks, "", "  ")
-			fmt.Println(string(data))
-		},
-	}
-
-	rootCmd.AddCommand(addCmd, listCmd, doneCmd, removeCmd, editCmd, statsCmd, searchCmd, exportCmd)
-
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+	default:
+		fmt.Printf("Unknown command: %s\n", os.Args[1])
+		printUsage()
 		os.Exit(1)
 	}
 }
 
-func containsTag(tags []string, tag string) bool {
-	for _, t := range tags {
-		if strings.EqualFold(t, tag) {
-			return true
-		}
+func loadTasks() []Task {
+	var tasks []Task
+	data, err := os.ReadFile("tasks.json")
+	if err != nil {
+		return tasks
 	}
-	return false
+	json.Unmarshal(data, &tasks)
+	return tasks
 }
 
-func isOverdue(due string) bool {
-	if due == "" {
-		return false
+func saveTasks(tasks []Task) {
+	data, _ := json.MarshalIndent(tasks, "", "  ")
+	os.WriteFile("tasks.json", data, 0644)
+}
+
+func printTasks(tasks []Task) {
+	if len(tasks) == 0 {
+		fmt.Println("No tasks found.")
+		return
 	}
-	t, err := time.Parse("2006-01-02", due)
-	if err != nil {
-		return false
+	fmt.Println("\nID | Title | Priority | Tags | Due | Status")
+	fmt.Println("---|-------|----------|------|-----|-------")
+	for _, t := range tasks {
+		status := "pending"
+		if t.Completed {
+			status = "done"
+		}
+		fmt.Printf("%d | %s | %s | %s | %s | %s\n",
+			t.ID, t.Title, t.Priority, strings.Join(t.Tags, ","), t.DueDate, status)
 	}
-	return time.Now().After(t)
+}
+
+func printJSON(tasks []Task) {
+	data, _ := json.MarshalIndent(tasks, "", "  ")
+	fmt.Println(string(data))
+}
+
+func printCSV(tasks []Task) {
+	fmt.Println("ID,Title,Description,Priority,Tags,DueDate,Completed")
+	for _, t := range tasks {
+		completed := "false"
+		if t.Completed {
+			completed = "true"
+		}
+		fmt.Printf("%d,\"%s\",\"%s\",%s,\"%s\",%s,%s\n",
+			t.ID, t.Title, t.Description, t.Priority,
+			strings.Join(t.Tags, ";"), t.DueDate, completed)
+	}
+}
+
+func printStats(tasks []Task) {
+	total := len(tasks)
+	done := 0
+	for _, t := range tasks {
+		if t.Completed {
+			done++
+		}
+	}
+	pending := total - done
+
+	fmt.Println("\nTask Statistics")
+	fmt.Println(strings.Repeat("=", 30))
+	fmt.Printf("Total:     %d\n", total)
+	fmt.Printf("Completed: %d\n", done)
+	fmt.Printf("Pending:   %d\n", pending)
+	if total > 0 {
+		fmt.Printf("Progress:  %.1f%%\n", float64(done)/float64(total)*100)
+	}
+}
+
+func sortByPriority(tasks []Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		pi, _ := strconv.Atoi(tasks[i].Priority)
+		pj, _ := strconv.Atoi(tasks[j].Priority)
+		return pi > pj
+	})
+}
+
+func sortByDueDate(tasks []Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].DueDate < tasks[j].DueDate
+	})
 }
