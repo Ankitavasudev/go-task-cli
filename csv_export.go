@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// ExportToCSV exports tasks to a CSV file
 func ExportToCSV(tasks []Task, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -18,13 +17,11 @@ func ExportToCSV(tasks []Task, filename string) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	// Header
 	header := []string{"ID", "Title", "Description", "Priority", "Tags", "DueDate", "Completed", "CreatedAt", "CompletedAt"}
 	if err := writer.Write(header); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	// Data
 	for _, task := range tasks {
 		completed := "false"
 		if task.Completed {
@@ -53,7 +50,6 @@ func ExportToCSV(tasks []Task, filename string) error {
 	return nil
 }
 
-// ImportFromCSV imports tasks from a CSV file
 func ImportFromCSV(filename string) ([]Task, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -68,13 +64,13 @@ func ImportFromCSV(filename string) ([]Task, error) {
 	}
 
 	if len(records) < 2 {
-		return nil, fmt.Errorf("CSV file is empty or has no data rows")
+		return []Task{}, nil
 	}
 
 	var tasks []Task
 	for i, record := range records {
 		if i == 0 {
-			continue // Skip header
+			continue
 		}
 		if len(record) < 7 {
 			continue
