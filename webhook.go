@@ -20,9 +20,9 @@ type Webhook struct {
 }
 
 type WebhookPayload struct {
-	Event     string    json:"event"
-	Task      Task      json:"task"
-	Timestamp time.Time json:"timestamp"
+	Event     string    `json:"`event"`
+	Task      Task      `json:"`task"`
+	Timestamp time.Time `json:"`timestamp"`
 }
 
 func NewWebhookManager() *WebhookManager {
