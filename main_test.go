@@ -3,86 +3,69 @@ package main
 import (
 	"os"
 	"testing"
+	"time"
 )
 
-func TestLoadStoreEmpty(t *testing.T) {
-	os.Remove(storeFile)
-	store := loadStore()
-	if store.NextID != 1 {
-		t.Errorf("Expected NextID=1, got %d", store.NextID)
-	}
-	if len(store.Tasks) != 0 {
-		t.Errorf("Expected 0 tasks, got %d", len(store.Tasks))
+func TestLoadTasks(t *testing.T) {
+	os.Remove("tasks.json")
+	tasks := loadTasks()
+	if len(tasks) != 0 {
+		t.Errorf("Expected 0 tasks, got %d", len(tasks))
 	}
 }
 
-func TestPriorityString(t *testing.T) {
-	tests := []struct {
-		p    Priority
-		want string
-	}{
-		{Low, "Low"},
-		{Medium, "Medium"},
-		{High, "High"},
-		{Urgent, "Urgent"},
+func TestSaveAndLoadTasks(t *testing.T) {
+	os.Remove("tasks.json")
+	tasks := []Task{
+		{ID: 1, Title: "Test Task", Priority: "3", Completed: false, CreatedAt: time.Now()},
+		{ID: 2, Title: "Done Task", Priority: "1", Completed: true, CreatedAt: time.Now()},
 	}
-	for _, tt := range tests {
-		if got := tt.p.String(); got != tt.want {
-			t.Errorf("Priority(%d).String() = %s, want %s", tt.p, got, tt.want)
-		}
+	saveTasks(tasks)
+	loaded := loadTasks()
+	if len(loaded) != 2 {
+		t.Errorf("Expected 2 tasks, got %d", len(loaded))
+	}
+	if loaded[0].Title != "Test Task" {
+		t.Errorf("Expected 'Test Task', got '%s'", loaded[0].Title)
+	}
+	os.Remove("tasks.json")
+}
+
+func TestSortByPriority(t *testing.T) {
+	tasks := []Task{
+		{ID: 1, Title: "Low", Priority: "1"},
+		{ID: 2, Title: "High", Priority: "5"},
+		{ID: 3, Title: "Medium", Priority: "3"},
+	}
+	sortByPriority(tasks)
+	if tasks[0].Priority != "5" {
+		t.Errorf("Expected highest priority first, got %s", tasks[0].Priority)
 	}
 }
 
-func TestContainsTag(t *testing.T) {
-	tags := []string{"devops", "urgent", "backend"}
-	if !containsTag(tags, "urgent") {
-		t.Error("Expected to find 'urgent' tag")
+func TestSortByDueDate(t *testing.T) {
+	tasks := []Task{
+		{ID: 1, Title: "Later", DueDate: "2099-01-01"},
+		{ID: 2, Title: "Sooner", DueDate: "2026-01-01"},
 	}
-	if containsTag(tags, "frontend") {
-		t.Error("Should not find 'frontend' tag")
-	}
-	if !containsTag(tags, "DevOps") {
-		t.Error("Case-insensitive search should work")
+	sortByDueDate(tasks)
+	if tasks[0].DueDate != "2026-01-01" {
+		t.Errorf("Expected sooner date first, got %s", tasks[0].DueDate)
 	}
 }
 
-func TestIsOverdue(t *testing.T) {
-	if isOverdue("") {
-		t.Error("Empty date should not be overdue")
+func TestPrintStats(t *testing.T) {
+	tasks := []Task{
+		{ID: 1, Completed: true},
+		{ID: 2, Completed: false},
+		{ID: 3, Completed: false},
 	}
-	if isOverdue("2099-01-01") {
-		t.Error("Future date should not be overdue")
-	}
-	if !isOverdue("2020-01-01") {
-		t.Error("Past date should be overdue")
-	}
-	if isOverdue("invalid-date") {
-		t.Error("Invalid date should not be overdue")
-	}
+	printStats(tasks)
 }
 
-func TestStorePersistence(t *testing.T) {
-	os.Remove(storeFile)
-	store := loadStore()
-	task := Task{
-		ID:        1,
-		Title:     "Test task",
-		Priority:  Medium,
-		CreatedAt: "2026-08-08T10:00:00Z",
+func TestPrintTasks(t *testing.T) {
+	tasks := []Task{
+		{ID: 1, Title: "Task 1", Priority: "3", Completed: false},
 	}
-	store.Tasks = append(store.Tasks, task)
-	store.NextID = 2
-	saveStore(store)
-
-	loaded := loadStore()
-	if len(loaded.Tasks) != 1 {
-		t.Errorf("Expected 1 task after reload, got %d", len(loaded.Tasks))
-	}
-	if loaded.Tasks[0].Title != "Test task" {
-		t.Errorf("Expected title 'Test task', got '%s'", loaded.Tasks[0].Title)
-	}
-	if loaded.NextID != 2 {
-		t.Errorf("Expected NextID=2, got %d", loaded.NextID)
-	}
-	os.Remove(storeFile)
+	printTasks(tasks)
 }
