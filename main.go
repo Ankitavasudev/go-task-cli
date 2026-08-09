@@ -12,15 +12,15 @@ import (
 )
 
 type Task struct {
-	ID          int         + "" + json:"id" + "" + 
-	Title       string      + "" + json:"title" + "" + 
-	Description string      + "" + json:"description" + "" + 
-	Priority    string      + "" + json:"priority" + "" + 
-	Tags        []string    + "" + json:"tags" + "" + 
-	DueDate     string      + "" + json:"due_date" + "" + 
-	Completed   bool        + "" + json:"completed" + "" + 
-	CreatedAt   time.Time   + "" + json:"created_at" + "" + 
-	CompletedAt *time.Time  + "" + json:"completed_at,omitempty" + "" + 
+	ID          int         + [char]96 + json:"id" + [char]96 + 
+	Title       string      + [char]96 + json:"title" + [char]96 + 
+	Description string      + [char]96 + json:"description" + [char]96 + 
+	Priority    string      + [char]96 + json:"priority" + [char]96 + 
+	Tags        []string    + [char]96 + json:"tags" + [char]96 + 
+	DueDate     string      + [char]96 + json:"due_date" + [char]96 + 
+	Completed   bool        + [char]96 + json:"completed" + [char]96 + 
+	CreatedAt   time.Time   + [char]96 + json:"created_at" + [char]96 + 
+	CompletedAt *time.Time  + [char]96 + json:"completed_at,omitempty" + [char]96 + 
 }
 
 func main() {
@@ -64,43 +64,27 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println("Go Task CLI - Manage your tasks efficiently")
-	fmt.Println()
-	fmt.Println("Commands:")
-	fmt.Println("  add         Add a new task")
-	fmt.Println("  list        List all tasks")
-	fmt.Println("  done        Mark a task as completed")
-	fmt.Println("  delete      Delete a task")
-	fmt.Println("  search      Search tasks")
-	fmt.Println("  stats       Show task statistics")
-	fmt.Println("  priority    List tasks by priority")
-	fmt.Println("  due         List tasks by due date")
-	fmt.Println("  export      Export tasks to CSV")
-	fmt.Println("  import      Import tasks from CSV")
-	fmt.Println("  interactive Start interactive mode")
-	fmt.Println()
-	fmt.Println("Flags:")
-	fmt.Println("  --json      Output as JSON (list command)")
-	fmt.Println("  --csv       Output as CSV (list command)")
+	fmt.Println("Go Task CLI")
+	fmt.Println("Commands: add, list, done, delete, search, stats, export, import, interactive")
 }
 
 func runCLI() {
 	addCmd := flag.NewFlagSet("add", flag.ExitOnError)
 	title := addCmd.String("title", "", "Task title")
 	desc := addCmd.String("desc", "", "Task description")
-	priority := addCmd.String("priority", "3", "Priority (1-5)")
+	priority := addCmd.String("priority", "3", "Priority 1-5")
 	tags := addCmd.String("tags", "", "Comma-separated tags")
-	due := addCmd.String("due", "", "Due date (YYYY-MM-DD)")
+	due := addCmd.String("due", "", "Due date YYYY-MM-DD")
 
 	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
 	jsonOutput := listCmd.Bool("json", false, "Output as JSON")
 	csvOutput := listCmd.Bool("csv", false, "Output as CSV")
 
 	doneCmd := flag.NewFlagSet("done", flag.ExitOnError)
-	doneID := doneCmd.Int("id", 0, "Task ID to mark as done")
+	doneID := doneCmd.Int("id", 0, "Task ID")
 
 	deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
-	deleteID := deleteCmd.Int("id", 0, "Task ID to delete")
+	deleteID := deleteCmd.Int("id", 0, "Task ID")
 
 	searchCmd := flag.NewFlagSet("search", flag.ExitOnError)
 	query := searchCmd.String("q", "", "Search query")
@@ -124,7 +108,7 @@ func runCLI() {
 		}
 		tasks = append(tasks, newTask)
 		saveTasks(tasks)
-		fmt.Printf("Task added: %s (ID: %d)\n", newTask.Title, newTask.ID)
+		fmt.Printf("Task added: %s\n", newTask.Title)
 
 	case "list":
 		listCmd.Parse(os.Args[2:])
@@ -139,10 +123,6 @@ func runCLI() {
 
 	case "done":
 		doneCmd.Parse(os.Args[2:])
-		if *doneID == 0 {
-			fmt.Println("Error: --id is required")
-			os.Exit(1)
-		}
 		tasks := loadTasks()
 		for i := range tasks {
 			if tasks[i].ID == *doneID {
@@ -154,40 +134,28 @@ func runCLI() {
 				return
 			}
 		}
-		fmt.Printf("Task with ID %d not found\n", *doneID)
+		fmt.Printf("Task %d not found\n", *doneID)
 
 	case "delete":
 		deleteCmd.Parse(os.Args[2:])
-		if *deleteID == 0 {
-			fmt.Println("Error: --id is required")
-			os.Exit(1)
-		}
 		tasks := loadTasks()
 		for i := range tasks {
 			if tasks[i].ID == *deleteID {
-				title := tasks[i].Title
 				tasks = append(tasks[:i], tasks[i+1:]...)
 				saveTasks(tasks)
-				fmt.Printf("Deleted: %s\n", title)
+				fmt.Println("Deleted")
 				return
 			}
 		}
-		fmt.Printf("Task with ID %d not found\n", *deleteID)
+		fmt.Printf("Task %d not found\n", *deleteID)
 
 	case "search":
 		searchCmd.Parse(os.Args[2:])
 		tasks := loadTasks()
-		queryLower := strings.ToLower(*query)
-		found := false
 		for _, t := range tasks {
-			if strings.Contains(strings.ToLower(t.Title), queryLower) ||
-				strings.Contains(strings.ToLower(t.Description), queryLower) {
-				fmt.Printf("  [%d] %s (priority: %s)\n", t.ID, t.Title, t.Priority)
-				found = true
+			if strings.Contains(strings.ToLower(t.Title), strings.ToLower(*query)) {
+				fmt.Printf("[%d] %s\n", t.ID, t.Title)
 			}
-		}
-		if !found {
-			fmt.Println("No matching tasks found.")
 		}
 
 	case "stats":
@@ -207,7 +175,6 @@ func runCLI() {
 	default:
 		fmt.Printf("Unknown command: %s\n", os.Args[1])
 		printUsage()
-		os.Exit(1)
 	}
 }
 
@@ -227,19 +194,12 @@ func saveTasks(tasks []Task) {
 }
 
 func printTasks(tasks []Task) {
-	if len(tasks) == 0 {
-		fmt.Println("No tasks found.")
-		return
-	}
-	fmt.Println("\nID | Title | Priority | Tags | Due | Status")
-	fmt.Println("---|-------|----------|------|-----|-------")
 	for _, t := range tasks {
 		status := "pending"
 		if t.Completed {
 			status = "done"
 		}
-		fmt.Printf("%d | %s | %s | %s | %s | %s\n",
-			t.ID, t.Title, t.Priority, strings.Join(t.Tags, ","), t.DueDate, status)
+		fmt.Printf("[%d] %s | P%s | %s\n", t.ID, t.Title, t.Priority, status)
 	}
 }
 
@@ -249,15 +209,9 @@ func printJSON(tasks []Task) {
 }
 
 func printCSV(tasks []Task) {
-	fmt.Println("ID,Title,Description,Priority,Tags,DueDate,Completed")
+	fmt.Println("ID,Title,Priority,Completed")
 	for _, t := range tasks {
-		completed := "false"
-		if t.Completed {
-			completed = "true"
-		}
-		fmt.Printf("%d,\"%s\",\"%s\",%s,\"%s\",%s,%s\n",
-			t.ID, t.Title, t.Description, t.Priority,
-			strings.Join(t.Tags, ";"), t.DueDate, completed)
+		fmt.Printf("%d,%s,%s,%v\n", t.ID, t.Title, t.Priority, t.Completed)
 	}
 }
 
@@ -269,16 +223,7 @@ func printStats(tasks []Task) {
 			done++
 		}
 	}
-	pending := total - done
-
-	fmt.Println("\nTask Statistics")
-	fmt.Println(strings.Repeat("=", 30))
-	fmt.Printf("Total:     %d\n", total)
-	fmt.Printf("Completed: %d\n", done)
-	fmt.Printf("Pending:   %d\n", pending)
-	if total > 0 {
-		fmt.Printf("Progress:  %.1f%%\n", float64(done)/float64(total)*100)
-	}
+	fmt.Printf("Total: %d | Done: %d | Pending: %d\n", total, done, total-done)
 }
 
 func sortByPriority(tasks []Task) {
