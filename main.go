@@ -1,135 +1,216 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 )
+
+type Task struct {
+	ID          int        `json:"id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Priority    string     `json:"priority"`
+	Tags        []string   `json:"tags"`
+	DueDate     string     `json:"due_date"`
+	Completed   bool       `json:"completed"`
+	CreatedAt   time.Time  `json:"created_at"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+}
 
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
 		return
 	}
-
 	switch os.Args[1] {
-	case "analyze":
-		analyzeCmd := flag.NewFlagSet("analyze", flag.ExitOnError)
-		input := analyzeCmd.String("input", "", "Log file or directory")
-		output := analyzeCmd.String("output", "text", "Output format: text, json, csv")
-		namespace := analyzeCmd.String("namespace", "", "Filter by namespace")
-		status := analyzeCmd.String("status", "", "Filter by status")
-		minRestarts := analyzeCmd.Int("min-restarts", 0, "Filter by minimum restart count")
-		errorsOnly := analyzeCmd.Bool("errors-only", false, "Show only pods with errors")
-		pretty := analyzeCmd.Bool("pretty", true, "Pretty print JSON output")
-		analyzeCmd.Parse(os.Args[2:])
-
-		if *input == "" {
-			fmt.Println("Error: --input is required")
+	case "interactive", "i":
+		RunInteractive()
+	case "export":
+		exportCmd := flag.NewFlagSet("export", flag.ExitOnError)
+		filename := exportCmd.String("file", "tasks.csv", "Output filename")
+		exportCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		if err := ExportToCSV(tasks, *filename); err != nil {
+			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
-
-		results := analyzePod(*input)
-
-		if *namespace != "" {
-			results = FilterByNamespace(results, *namespace)
+	case "import":
+		importCmd := flag.NewFlagSet("import", flag.ExitOnError)
+		filename := importCmd.String("file", "", "Input CSV filename")
+		importCmd.Parse(os.Args[2:])
+		if *filename == "" {
+			fmt.Println("Error: --file is required")
+			os.Exit(1)
 		}
-		if *status != "" {
-			results = FilterByStatus(results, *status)
+		tasks := loadTasks()
+		imported, err := ImportFromCSV(*filename)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
 		}
-		if *minRestarts > 0 {
-			results = FilterByRestartCount(results, *minRestarts)
-		}
-		if *errorsOnly {
-			results = FilterByHasErrors(results)
-		}
-
-		switch *output {
-		case "json":
-			OutputJSON(results, *pretty)
-		case "csv":
-			OutputCSV(results)
-		default:
-			printResults(results)
-		}
-
-	case "version":
-		fmt.Println("k8s-pod-analyzer v1.0.0")
-
+		tasks = append(tasks, imported...)
+		saveTasks(tasks)
+		fmt.Printf("Imported %d tasks\n", len(imported))
 	default:
-		fmt.Printf("Unknown command: %s\n", os.Args[1])
-		printUsage()
-		os.Exit(1)
+		runCLI()
 	}
 }
 
 func printUsage() {
-	fmt.Println("K8s Pod Analyzer - Kubernetes log analysis tool")
-	fmt.Println()
-	fmt.Println("Usage:")
-	fmt.Println("  k8s-pod-analyzer analyze [flags]")
-	fmt.Println("  k8s-pod-analyzer version")
-	fmt.Println()
-	fmt.Println("Flags:")
-	fmt.Println("  --input         Log file or directory (required)")
-	fmt.Println("  --output        Output format: text, json, csv (default: text)")
-	fmt.Println("  --namespace     Filter by namespace")
-	fmt.Println("  --status        Filter by status (Running, Error, CrashLoopBackOff, etc.)")
-	fmt.Println("  --min-restarts  Filter by minimum restart count")
-	fmt.Println("  --errors-only   Show only pods with errors")
-	fmt.Println("  --pretty        Pretty print JSON output (default: true)")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  k8s-pod-analyzer analyze --input ./logs")
-	fmt.Println("  k8s-pod-analyzer analyze --input ./logs --output json --pretty")
-	fmt.Println("  k8s-pod-analyzer analyze --input ./logs --status CrashLoopBackOff")
-	fmt.Println("  k8s-pod-analyzer analyze --input ./logs --min-restarts 5 --errors-only")
-	fmt.Println("  k8s-pod-analyzer analyze --input ./logs --namespace kube-system --output csv")
+	fmt.Println("Go Task CLI")
+	fmt.Println("Commands: add, list, done, delete, search, stats, export, import, interactive")
 }
 
-func analyzePod(input string) []AnalysisResult {
-	info := []AnalysisResult{
-		{PodName: "nginx-abc123", Namespace: "default", Status: "Running", RestartCount: 0, NodeName: "node-1", Age: "5d"},
-		{PodName: "redis-def456", Namespace: "kube-system", Status: "Running", RestartCount: 2, NodeName: "node-2", Age: "3d"},
-		{PodName: "app-ghi789", Namespace: "default", Status: "CrashLoopBackOff", RestartCount: 15, NodeName: "node-1", Age: "1d",
-			LogErrors:      []LogEntry{{Timestamp: "2026-08-08T10:00:00Z", Level: "error", Message: "Connection refused"}},
-			Recommendations: []string{"Check application logs", "Verify database connection"}},
-		{PodName: "worker-jkl012", Namespace: "production", Status: "Error", RestartCount: 8, NodeName: "node-3", Age: "2d",
-			LogErrors: []LogEntry{{Timestamp: "2026-08-08T11:00:00Z", Level: "error", Message: "OOMKilled"}}},
+func runCLI() {
+	addCmd := flag.NewFlagSet("add", flag.ExitOnError)
+	title := addCmd.String("title", "", "Task title")
+	desc := addCmd.String("desc", "", "Task description")
+	priority := addCmd.String("priority", "3", "Priority 1-5")
+	tags := addCmd.String("tags", "", "Comma-separated tags")
+	due := addCmd.String("due", "", "Due date YYYY-MM-DD")
+	listCmd := flag.NewFlagSet("list", flag.ExitOnError)
+	jsonOutput := listCmd.Bool("json", false, "Output as JSON")
+	csvOutput := listCmd.Bool("csv", false, "Output as CSV")
+	doneCmd := flag.NewFlagSet("done", flag.ExitOnError)
+	doneID := doneCmd.Int("id", 0, "Task ID")
+	deleteCmd := flag.NewFlagSet("delete", flag.ExitOnError)
+	deleteID := deleteCmd.Int("id", 0, "Task ID")
+	searchCmd := flag.NewFlagSet("search", flag.ExitOnError)
+	query := searchCmd.String("q", "", "Search query")
+	switch os.Args[1] {
+	case "add":
+		addCmd.Parse(os.Args[2:])
+		if *title == "" {
+			fmt.Println("Error: --title required")
+			os.Exit(1)
+		}
+		tasks := loadTasks()
+		newTask := Task{ID: len(tasks) + 1, Title: *title, Description: *desc, Priority: *priority, Tags: strings.Split(*tags, ","), DueDate: *due, CreatedAt: time.Now()}
+		tasks = append(tasks, newTask)
+		saveTasks(tasks)
+		fmt.Printf("Added: %s\n", newTask.Title)
+	case "list":
+		listCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		if *jsonOutput {
+			printJSON(tasks)
+		} else if *csvOutput {
+			printCSV(tasks)
+		} else {
+			printTasks(tasks)
+		}
+	case "done":
+		doneCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		for i := range tasks {
+			if tasks[i].ID == *doneID {
+				tasks[i].Completed = true
+				now := time.Now()
+				tasks[i].CompletedAt = &now
+				saveTasks(tasks)
+				fmt.Printf("Done: %s\n", tasks[i].Title)
+				return
+			}
+		}
+	case "delete":
+		deleteCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		for i := range tasks {
+			if tasks[i].ID == *deleteID {
+				tasks = append(tasks[:i], tasks[i+1:]...)
+				saveTasks(tasks)
+				fmt.Println("Deleted")
+				return
+			}
+		}
+	case "search":
+		searchCmd.Parse(os.Args[2:])
+		tasks := loadTasks()
+		for _, t := range tasks {
+			if strings.Contains(strings.ToLower(t.Title), strings.ToLower(*query)) {
+				fmt.Printf("[%d] %s\n", t.ID, t.Title)
+			}
+		}
+	case "stats":
+		printStats(loadTasks())
+	case "priority":
+		tasks := loadTasks()
+		sortByPriority(tasks)
+		printTasks(tasks)
+	case "due":
+		tasks := loadTasks()
+		sortByDueDate(tasks)
+		printTasks(tasks)
+	default:
+		fmt.Printf("Unknown: %s\n", os.Args[1])
+		printUsage()
 	}
-	return info
 }
 
-func printResults(results []AnalysisResult) {
-	if len(results) == 0 {
-		fmt.Println("No results found.")
-		return
+func loadTasks() []Task {
+	var tasks []Task
+	data, err := os.ReadFile("tasks.json")
+	if err != nil {
+		return tasks
 	}
-	fmt.Println("\nPod Analysis Results")
-	fmt.Println(strings.Repeat("=", 80))
-	for _, r := range results {
-		fmt.Printf("\nPod: %s/%s\n", r.Namespace, r.PodName)
-		fmt.Printf("  Status: %s | Restarts: %d | Node: %s | Age: %s\n", r.Status, r.RestartCount, r.NodeName, r.Age)
-		if len(r.LogErrors) > 0 {
-			fmt.Println("  Errors:")
-			for _, e := range r.LogErrors {
-				fmt.Printf("    [%s] %s: %s\n", e.Timestamp, e.Level, e.Message)
-			}
+	json.Unmarshal(data, &tasks)
+	return tasks
+}
+
+func saveTasks(tasks []Task) {
+	data, _ := json.MarshalIndent(tasks, "", "  ")
+	os.WriteFile("tasks.json", data, 0644)
+}
+
+func printTasks(tasks []Task) {
+	for _, t := range tasks {
+		status := "pending"
+		if t.Completed {
+			status = "done"
 		}
-		if len(r.Recommendations) > 0 {
-			fmt.Println("  Recommendations:")
-			for _, rec := range r.Recommendations {
-				fmt.Printf("    - %s\n", rec)
-			}
+		fmt.Printf("[%d] %s | P%s | %s\n", t.ID, t.Title, t.Priority, status)
+	}
+}
+
+func printJSON(tasks []Task) {
+	data, _ := json.MarshalIndent(tasks, "", "  ")
+	fmt.Println(string(data))
+}
+
+func printCSV(tasks []Task) {
+	fmt.Println("ID,Title,Priority,Completed")
+	for _, t := range tasks {
+		fmt.Printf("%d,%s,%s,%v\n", t.ID, t.Title, t.Priority, t.Completed)
+	}
+}
+
+func printStats(tasks []Task) {
+	total := len(tasks)
+	done := 0
+	for _, t := range tasks {
+		if t.Completed {
+			done++
 		}
 	}
-	fmt.Println(strings.Repeat("=", 80))
-	healthy := 0
-	for _, r := range results {
-		if r.Status == "Running" {
-			healthy++
-		}
-	}
-	fmt.Printf("Total: %d | Healthy: %d | Unhealthy: %d\n", len(results), healthy, len(results)-healthy)
+	fmt.Printf("Total: %d | Done: %d | Pending: %d\n", total, done, total-done)
+}
+
+func sortByPriority(tasks []Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		pi, _ := strconv.Atoi(tasks[i].Priority)
+		pj, _ := strconv.Atoi(tasks[j].Priority)
+		return pi > pj
+	})
+}
+
+func sortByDueDate(tasks []Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].DueDate < tasks[j].DueDate
+	})
 }
