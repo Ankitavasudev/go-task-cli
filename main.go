@@ -12,15 +12,15 @@ import (
 )
 
 type Task struct {
-	ID          int        json:"id"
-	Title       string     json:"title"
-	Description string     json:"description"
-	Priority    string     json:"priority"
-	Tags        []string   json:"tags"
-	DueDate     string     json:"due_date"
-	Completed   bool       json:"completed"
-	CreatedAt   time.Time  json:"created_at"
-	CompletedAt *time.Time json:"completed_at,omitempty"
+	ID          int         + "" + json:"id" + "" + 
+	Title       string      + "" + json:"title" + "" + 
+	Description string      + "" + json:"description" + "" + 
+	Priority    string      + "" + json:"priority" + "" + 
+	Tags        []string    + "" + json:"tags" + "" + 
+	DueDate     string      + "" + json:"due_date" + "" + 
+	Completed   bool        + "" + json:"completed" + "" + 
+	CreatedAt   time.Time   + "" + json:"created_at" + "" + 
+	CompletedAt *time.Time  + "" + json:"completed_at,omitempty" + "" + 
 }
 
 func main() {
