@@ -17,11 +17,12 @@ func NewScheduler(tasks []Task) *Scheduler {
 func (s *Scheduler) GetOverdueTasks() []Task {
 	var overdue []Task
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	for _, task := range s.tasks {
 		if task.DueDate != "" && !task.Completed {
 			due, err := time.Parse("2006-01-02", task.DueDate)
-			if err == nil && now.After(due) {
+			if err == nil && today.After(due) {
 				overdue = append(overdue, task)
 			}
 		}
@@ -64,6 +65,7 @@ func (s *Scheduler) GetTaskStats() map[string]int {
 
 	now := time.Now()
 	today := now.Format("2006-01-02")
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	for _, task := range s.tasks {
 		stats["total"]++
@@ -76,7 +78,7 @@ func (s *Scheduler) GetTaskStats() map[string]int {
 			}
 			if task.DueDate != "" {
 				due, err := time.Parse("2006-01-02", task.DueDate)
-				if err == nil && now.After(due) {
+				if err == nil && todayStart.After(due) {
 					stats["overdue"]++
 				}
 			}
