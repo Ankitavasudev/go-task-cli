@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -37,7 +38,6 @@ func TestExportToCSVWithCommas(t *testing.T) {
 		t.Fatalf("ExportToCSV failed: %v", err)
 	}
 
-	// Verify the file can be imported back
 	tasks2, err := ImportFromCSV(tmpFile)
 	if err != nil {
 		t.Fatalf("ImportFromCSV failed: %v", err)
