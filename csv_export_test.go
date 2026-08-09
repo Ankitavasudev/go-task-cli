@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +21,34 @@ func TestExportToCSV(t *testing.T) {
 
 	if _, err := os.Stat(tmpFile); os.IsNotExist(err) {
 		t.Fatal("Export file was not created")
+	}
+}
+
+func TestExportToCSVWithCommas(t *testing.T) {
+	tasks := []Task{
+		{ID: 1, Title: "Task", Description: "Fix bug, add feature", Priority: "3"},
+	}
+
+	tmpFile := "test_comma.csv"
+	defer os.Remove(tmpFile)
+
+	err := ExportToCSV(tasks, tmpFile)
+	if err != nil {
+		t.Fatalf("ExportToCSV failed: %v", err)
+	}
+
+	// Verify the file can be imported back
+	tasks2, err := ImportFromCSV(tmpFile)
+	if err != nil {
+		t.Fatalf("ImportFromCSV failed: %v", err)
+	}
+
+	if len(tasks2) != 1 {
+		t.Fatalf("Expected 1 task, got %d", len(tasks2))
+	}
+
+	if !strings.Contains(tasks2[0].Description, ",") {
+		t.Errorf("Description lost comma: %s", tasks2[0].Description)
 	}
 }
 
