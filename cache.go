@@ -15,8 +15,8 @@ type CacheManager struct {
 }
 
 type CacheEntry struct {
-	Value     interface{} json:"value"
-	ExpiresAt time.Time   json:"expires_at"
+	Value     interface{} `json:"`value"`
+	ExpiresAt time.Time   `json:"`expires_at"`
 }
 
 func NewCacheManager(filePath string) *CacheManager {
