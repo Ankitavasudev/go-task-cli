@@ -13,6 +13,14 @@ go build -o task-cli .
 The store is `~/.go-task-cli.json`; set `GO_TASK_CLI_FILE` to point somewhere
 else (the tests rely on that to stay out of your home directory).
 
+## Install
+
+```bash
+go install github.com/Ankitavasudev/go-task-cli@v1.0.0
+```
+
+Go 1.21+. From a clone: `go build -o task-cli .`
+
 ## Commands
 
 | Command | What it does |
