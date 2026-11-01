@@ -1,18 +1,45 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.21", "1.22", "1.23"]
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
-      - name: Build
-        run: go build -v ./...
+          go-version: ${{ matrix.go-version }}
+
+      - name: Format
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
       - name: Test
-        run: go test -v -race ./...
+        run: go test -race ./...
+
+      - name: Build
+        run: go build -o task-cli .
+
+      - name: End-to-end smoke test
+        run: |
+          export GO_TASK_CLI_FILE="$PWD/tasks.json"
+          ./task-cli add "Ship it" --project work --priority high --due 2026-12-01
+          ./task-cli add "Buy milk"
+          ./task-cli list --project work
+          ./task-cli done 1
+          ./task-cli csv-export out.csv
+          ./task-cli csv-import out.csv
+          ./task-cli stats

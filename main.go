@@ -52,6 +52,9 @@ type TaskStore struct {
 }
 
 func getStorePath() string {
+	if custom := os.Getenv("GO_TASK_CLI_FILE"); custom != "" {
+		return custom
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ".go-task-cli.json"
@@ -116,7 +119,9 @@ func parsePriority(s string) Priority {
 }
 
 func parseStatus(s string) Status {
-	switch strings.ToLower(s) {
+	// Accept "in_progress" as well as "in-progress", and tolerate spaces.
+	normalised := strings.NewReplacer("_", "-", " ", "-").Replace(strings.ToLower(strings.TrimSpace(s)))
+	switch normalised {
 	case "todo", "to-do":
 		return StatusTodo
 	case "in-progress", "progress", "wip":
@@ -162,7 +167,7 @@ func statusIcon(s Status) string {
 
 func printTask(t Task) {
 	fmt.Printf("  %s \033[36m#%d\033[0m %s%s\033[0m",
-		statusIcon(t.ID), t.ID, priorityColor(t.Priority), t.Title)
+		statusIcon(t.Status), t.ID, priorityColor(t.Priority), t.Title)
 	if t.Project != "" {
 		fmt.Printf(" \033[35m[%s]\033[0m", t.Project)
 	}
@@ -186,6 +191,65 @@ func printTask(t Task) {
 		fmt.Printf(" | Completed: %s", t.CompletedAt.Format("Jan 02, 2006 15:04"))
 	}
 	fmt.Println()
+}
+
+// filterTasks applies the list command's filters in order. Every argument is
+// optional; an empty string means "do not filter on this field".
+func filterTasks(tasks []Task, project, status, priority, tag, search string) []Task {
+	result := tasks
+	if project != "" {
+		var kept []Task
+		for _, t := range result {
+			if t.Project == project {
+				kept = append(kept, t)
+			}
+		}
+		result = kept
+	}
+	if status != "" {
+		want := parseStatus(status)
+		var kept []Task
+		for _, t := range result {
+			if t.Status == want {
+				kept = append(kept, t)
+			}
+		}
+		result = kept
+	}
+	if priority != "" {
+		want := parsePriority(priority)
+		var kept []Task
+		for _, t := range result {
+			if t.Priority == want {
+				kept = append(kept, t)
+			}
+		}
+		result = kept
+	}
+	if tag != "" {
+		var kept []Task
+		for _, t := range result {
+			for _, candidate := range t.Tags {
+				if candidate == tag {
+					kept = append(kept, t)
+					break
+				}
+			}
+		}
+		result = kept
+	}
+	if search != "" {
+		lower := strings.ToLower(search)
+		var kept []Task
+		for _, t := range result {
+			if strings.Contains(strings.ToLower(t.Title), lower) ||
+				strings.Contains(strings.ToLower(t.Description), lower) {
+				kept = append(kept, t)
+			}
+		}
+		result = kept
+	}
+	return result
 }
 
 func printStore(store TaskStore) {
@@ -221,7 +285,7 @@ func printStore(store TaskStore) {
 		len(store.Tasks), todo, inProgress, done)
 }
 
-func main() {
+func newRootCmd() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:   "go-task-cli",
 		Short: "A fast, project-aware task manager for developers",
@@ -283,60 +347,7 @@ func main() {
 			priority, _ := cmd.Flags().GetString("priority")
 			tag, _ := cmd.Flags().GetString("tag")
 			search, _ := cmd.Flags().GetString("search")
-			filtered := store.Tasks
-			if project != "" {
-				var temp []Task
-				for _, t := range filtered {
-					if t.Project == project {
-						temp = append(temp, t)
-					}
-				}
-				filtered = temp
-			}
-			if status != "" {
-				s := parseStatus(status)
-				var temp []Task
-				for _, t := range filtered {
-					if t.Status == s {
-						temp = append(temp, t)
-					}
-				}
-				filtered = temp
-			}
-			if priority != "" {
-				p := parsePriority(priority)
-				var temp []Task
-				for _, t := range filtered {
-					if t.Priority == p {
-						temp = append(temp, t)
-					}
-				}
-				filtered = temp
-			}
-			if tag != "" {
-				var temp []Task
-				for _, t := range filtered {
-					for _, tg := range t.Tags {
-						if tg == tag {
-							temp = append(temp, t)
-							break
-						}
-					}
-				}
-				filtered = temp
-			}
-			if search != "" {
-				lower := strings.ToLower(search)
-				var temp []Task
-				for _, t := range filtered {
-					if strings.Contains(strings.ToLower(t.Title), lower) ||
-						strings.Contains(strings.ToLower(t.Description), lower) {
-						temp = append(temp, t)
-					}
-				}
-				filtered = temp
-			}
-			store.Tasks = filtered
+			store.Tasks = filterTasks(store.Tasks, project, status, priority, tag, search)
 			printStore(store)
 		},
 	}
@@ -666,9 +677,14 @@ func main() {
 	}
 
 	rootCmd.AddCommand(addCmd, listCmd, doneCmd, progressCmd, deleteCmd, editCmd,
-		projectsCmd, searchCmd, exportCmd, importCmd, statsCmd, interactiveCmd)
+		projectsCmd, searchCmd, exportCmd, importCmd, statsCmd, interactiveCmd,
+		csvExportCmd, csvImportCmd)
 
-	if err := rootCmd.Execute(); err != nil {
+	return rootCmd
+}
+
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
