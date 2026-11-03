@@ -1,0 +1,147 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Cut v1.1.0 release notes",
+      "description": "Summarise the board command and the CSV fixes",
+      "project": "go-task-cli",
+      "priority": "high",
+      "status": "in_progress",
+      "tags": ["release", "docs"],
+      "created_at": "2026-10-26T09:15:00Z",
+      "updated_at": "2026-11-02T18:40:00Z",
+      "due_date": "2026-11-05T00:00:00Z"
+    },
+    {
+      "id": 2,
+      "title": "Add CSV import validation",
+      "description": "Reject rows with an empty title instead of dropping them",
+      "project": "go-task-cli",
+      "priority": "medium",
+      "status": "done",
+      "tags": ["csv"],
+      "created_at": "2026-10-21T11:00:00Z",
+      "updated_at": "2026-10-28T16:20:00Z",
+      "completed_at": "2026-10-28T16:20:00Z"
+    },
+    {
+      "id": 3,
+      "title": "Profile README: add project demos",
+      "description": "Link each project to its Pages build",
+      "project": "portfolio",
+      "priority": "high",
+      "status": "todo",
+      "tags": ["docs"],
+      "created_at": "2026-10-30T08:30:00Z",
+      "updated_at": "2026-10-30T08:30:00Z",
+      "due_date": "2026-11-07T00:00:00Z"
+    },
+    {
+      "id": 4,
+      "title": "Fix flaky allocator test",
+      "description": "Waiting on a maintainer reply about the fake cache",
+      "project": "volcano",
+      "priority": "critical",
+      "status": "blocked",
+      "tags": ["testing", "upstream"],
+      "created_at": "2026-10-24T14:05:00Z",
+      "updated_at": "2026-11-01T10:12:00Z",
+      "due_date": "2026-11-04T00:00:00Z"
+    },
+    {
+      "id": 5,
+      "title": "Review Jaeger CSP pull request",
+      "description": "Check the base-uri directive against the UI routes",
+      "project": "jaeger",
+      "priority": "high",
+      "status": "in_progress",
+      "tags": ["review", "upstream"],
+      "created_at": "2026-10-31T07:45:00Z",
+      "updated_at": "2026-11-02T09:05:00Z",
+      "due_date": "2026-11-06T00:00:00Z"
+    },
+    {
+      "id": 6,
+      "title": "Read the QueueingHint docs",
+      "description": "Understand how the scheduler plugin signals a retry",
+      "project": "learning",
+      "priority": "low",
+      "status": "todo",
+      "tags": ["reading"],
+      "created_at": "2026-10-29T20:10:00Z",
+      "updated_at": "2026-10-29T20:10:00Z"
+    },
+    {
+      "id": 7,
+      "title": "Renew the domain",
+      "description": "ankitasalaria.dev expires at the end of the month",
+      "project": "personal",
+      "priority": "medium",
+      "status": "todo",
+      "tags": ["admin"],
+      "created_at": "2026-10-18T12:00:00Z",
+      "updated_at": "2026-10-18T12:00:00Z",
+      "due_date": "2026-10-30T00:00:00Z"
+    },
+    {
+      "id": 8,
+      "title": "Write post on the pod analyzer",
+      "description": "Walk through the HTML report and why escaping matters",
+      "project": "writing",
+      "priority": "medium",
+      "status": "todo",
+      "tags": ["blog"],
+      "created_at": "2026-10-27T18:25:00Z",
+      "updated_at": "2026-10-27T18:25:00Z",
+      "due_date": "2026-11-12T00:00:00Z"
+    },
+    {
+      "id": 9,
+      "title": "Upgrade the Go toolchain",
+      "description": "Bump the CI matrix once 1.24 is out",
+      "project": "go-task-cli",
+      "priority": "low",
+      "status": "todo",
+      "tags": ["ci"],
+      "created_at": "2026-10-22T09:40:00Z",
+      "updated_at": "2026-10-22T09:40:00Z"
+    },
+    {
+      "id": 10,
+      "title": "Triage kubeedge issues",
+      "description": "Closed two stale reports with reproduction notes",
+      "project": "kubeedge",
+      "priority": "medium",
+      "status": "done",
+      "tags": ["triage"],
+      "created_at": "2026-10-20T15:30:00Z",
+      "updated_at": "2026-11-01T13:15:00Z",
+      "completed_at": "2026-11-01T13:15:00Z"
+    },
+    {
+      "id": 11,
+      "title": "Back up dotfiles",
+      "project": "personal",
+      "priority": "low",
+      "status": "done",
+      "tags": ["admin"],
+      "created_at": "2026-10-19T21:00:00Z",
+      "updated_at": "2026-10-25T08:10:00Z",
+      "completed_at": "2026-10-25T08:10:00Z"
+    },
+    {
+      "id": 12,
+      "title": "Prepare CNCF talk outline",
+      "description": "Waiting for the CFP result before writing slides",
+      "project": "writing",
+      "priority": "critical",
+      "status": "blocked",
+      "tags": ["talk", "cncf"],
+      "created_at": "2026-10-16T10:20:00Z",
+      "updated_at": "2026-10-31T17:00:00Z",
+      "due_date": "2026-11-15T00:00:00Z"
+    }
+  ],
+  "next_id": 13,
+  "projects": ["go-task-cli", "jaeger", "kubeedge", "learning", "personal", "portfolio", "volcano", "writing"]
+}

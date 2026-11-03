@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>go-task-cli board</title>
+<style>
+:root{--bg:#0b1020;--panel:#141a2e;--card:#1b2340;--text:#e7ecf7;--muted:#8fa0c0;--line:#28324f;--low:#3fb950;--medium:#d29922;--high:#f0883e;--critical:#f85149;--accent:#58a6ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1280px;margin:0 auto;padding:36px 20px 64px}
+h1{font-size:24px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:26px}
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+@media (max-width:900px){.board{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.board{grid-template-columns:1fr}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.col h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:2px 0 12px;display:flex;justify-content:space-between}
+.col h2 .count{color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:12px}
+.col.done h2 .count{color:var(--low)}
+.card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--muted);border-radius:9px;padding:11px 12px;margin-bottom:10px}
+.card:last-child{margin-bottom:0}
+.card.low{border-left-color:var(--low)}
+.card.medium{border-left-color:var(--medium)}
+.card.high{border-left-color:var(--high)}
+.card.critical{border-left-color:var(--critical)}
+.card .top{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.card .id{color:var(--muted);font:12px ui-monospace,SFMono-Regular,Consolas,monospace}
+.card .title{font-weight:600;font-size:14px;margin:2px 0 4px;word-break:break-word}
+.card .desc{color:var(--muted);font-size:13px;margin:0 0 8px;word-break:break-word}
+.meta{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted)}
+.pill{border:1px solid var(--line);border-radius:999px;padding:0 7px;font-size:11px}
+.pill.project{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.pill.tag{color:var(--muted)}
+.pill.due{color:var(--medium)}
+.pill.overdue{color:var(--critical);border-color:color-mix(in srgb,var(--critical) 45%,var(--line));font-weight:600}
+.pill.completed{color:var(--low)}
+.empty{color:var(--muted);font-size:13px;padding:6px 2px}
+footer{color:var(--muted);font-size:12px;margin-top:26px}
+</style>
+</head>
+<body>
+<main>
+<h1>Task board</h1>
+<div class="sub">Generated 2026-11-03 10:05 IST &middot; 12 tasks across 8 projects &middot; v1.1.0</div>
+<div class="board">
+<section class="col todo">
+<h2>Todo <span class="count">5</span></h2>
+<article class="card high">
+<div class="top"><span class="id">#3</span></div>
+<div class="title">Profile README: add project demos</div>
+<p class="desc">Link each project to its Pages build</p>
+<div class="meta">
+<span class="pill high">high</span>
+<span class="pill project">portfolio</span>
+<span class="pill due">due Nov 07, 2026</span>
+
+<span class="pill tag">#docs</span>
+</div>
+</article><article class="card medium">
+<div class="top"><span class="id">#7</span></div>
+<div class="title">Renew the domain</div>
+<p class="desc">ankitasalaria.dev expires at the end of the month</p>
+<div class="meta">
+<span class="pill medium">medium</span>
+<span class="pill project">personal</span>
+<span class="pill overdue">overdue Oct 30, 2026</span>
+
+<span class="pill tag">#admin</span>
+</div>
+</article><article class="card medium">
+<div class="top"><span class="id">#8</span></div>
+<div class="title">Write post on the pod analyzer</div>
+<p class="desc">Walk through the HTML report and why escaping matters</p>
+<div class="meta">
+<span class="pill medium">medium</span>
+<span class="pill project">writing</span>
+<span class="pill due">due Nov 12, 2026</span>
+
+<span class="pill tag">#blog</span>
+</div>
+</article><article class="card low">
+<div class="top"><span class="id">#6</span></div>
+<div class="title">Read the QueueingHint docs</div>
+<p class="desc">Understand how the scheduler plugin signals a retry</p>
+<div class="meta">
+<span class="pill low">low</span>
+<span class="pill project">learning</span>
+
+
+<span class="pill tag">#reading</span>
+</div>
+</article><article class="card low">
+<div class="top"><span class="id">#9</span></div>
+<div class="title">Upgrade the Go toolchain</div>
+<p class="desc">Bump the CI matrix once 1.24 is out</p>
+<div class="meta">
+<span class="pill low">low</span>
+<span class="pill project">go-task-cli</span>
+
+
+<span class="pill tag">#ci</span>
+</div>
+</article>
+</section><section class="col progress">
+<h2>In progress <span class="count">2</span></h2>
+<article class="card high">
+<div class="top"><span class="id">#1</span></div>
+<div class="title">Cut v1.1.0 release notes</div>
+<p class="desc">Summarise the board command and the CSV fixes</p>
+<div class="meta">
+<span class="pill high">high</span>
+<span class="pill project">go-task-cli</span>
+<span class="pill due">due Nov 05, 2026</span>
+
+<span class="pill tag">#release</span><span class="pill tag">#docs</span>
+</div>
+</article><article class="card high">
+<div class="top"><span class="id">#5</span></div>
+<div class="title">Review Jaeger CSP pull request</div>
+<p class="desc">Check the base-uri directive against the UI routes</p>
+<div class="meta">
+<span class="pill high">high</span>
+<span class="pill project">jaeger</span>
+<span class="pill due">due Nov 06, 2026</span>
+
+<span class="pill tag">#review</span><span class="pill tag">#upstream</span>
+</div>
+</article>
+</section><section class="col blocked">
+<h2>Blocked <span class="count">2</span></h2>
+<article class="card critical">
+<div class="top"><span class="id">#4</span></div>
+<div class="title">Fix flaky allocator test</div>
+<p class="desc">Waiting on a maintainer reply about the fake cache</p>
+<div class="meta">
+<span class="pill critical">critical</span>
+<span class="pill project">volcano</span>
+<span class="pill due">due Nov 04, 2026</span>
+
+<span class="pill tag">#testing</span><span class="pill tag">#upstream</span>
+</div>
+</article><article class="card critical">
+<div class="top"><span class="id">#12</span></div>
+<div class="title">Prepare CNCF talk outline</div>
+<p class="desc">Waiting for the CFP result before writing slides</p>
+<div class="meta">
+<span class="pill critical">critical</span>
+<span class="pill project">writing</span>
+<span class="pill due">due Nov 15, 2026</span>
+
+<span class="pill tag">#talk</span><span class="pill tag">#cncf</span>
+</div>
+</article>
+</section><section class="col done">
+<h2>Done <span class="count">3</span></h2>
+<article class="card medium">
+<div class="top"><span class="id">#2</span></div>
+<div class="title">Add CSV import validation</div>
+<p class="desc">Reject rows with an empty title instead of dropping them</p>
+<div class="meta">
+<span class="pill medium">medium</span>
+<span class="pill project">go-task-cli</span>
+
+<span class="pill completed">done Oct 28, 2026</span>
+<span class="pill tag">#csv</span>
+</div>
+</article><article class="card medium">
+<div class="top"><span class="id">#10</span></div>
+<div class="title">Triage kubeedge issues</div>
+<p class="desc">Closed two stale reports with reproduction notes</p>
+<div class="meta">
+<span class="pill medium">medium</span>
+<span class="pill project">kubeedge</span>
+
+<span class="pill completed">done Nov 01, 2026</span>
+<span class="pill tag">#triage</span>
+</div>
+</article><article class="card low">
+<div class="top"><span class="id">#11</span></div>
+<div class="title">Back up dotfiles</div>
+
+<div class="meta">
+<span class="pill low">low</span>
+<span class="pill project">personal</span>
+
+<span class="pill completed">done Oct 25, 2026</span>
+<span class="pill tag">#admin</span>
+</div>
+</article>
+</section>
+</div>
+<footer>Generated by go-task-cli v1.1.0. The board is read-only; run the CLI to change a task.</footer>
+</main>
+</body>
+</html>

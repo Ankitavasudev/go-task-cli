@@ -1,4 +1,6 @@
-﻿task-cli
-task-cli.exe
-*.csv
-tasks.json
+﻿go-task-cli
+go-task-cli.exe
+*.exe
+/tasks.json
+/out.csv
+/board.html

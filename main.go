@@ -678,7 +678,7 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.AddCommand(addCmd, listCmd, doneCmd, progressCmd, deleteCmd, editCmd,
 		projectsCmd, searchCmd, exportCmd, importCmd, statsCmd, interactiveCmd,
-		csvExportCmd, csvImportCmd)
+		csvExportCmd, csvImportCmd, boardCmd, versionCmd)
 
 	return rootCmd
 }
